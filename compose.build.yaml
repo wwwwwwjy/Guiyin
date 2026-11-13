@@ -1,0 +1,53 @@
+services:
+  music-hub:
+    build:
+      context: .
+      args:
+        PYTHON_IMAGE: ${PYTHON_IMAGE:-python:3.12-slim}
+        PIP_INDEX_URL: ${PIP_INDEX_URL:-https://pypi.org/simple}
+    image: music-hub:local
+    container_name: music-hub
+    restart: unless-stopped
+    init: true
+    ports:
+      - "${HUB_PORT:-8600}:8600"
+    environment:
+      TZ: Asia/Shanghai
+      FNMUSIC_HOME: /data
+      MUSIC_DIR: /music
+      FNMUSIC_SOCKET: /run/trim_music.socket
+      FNMUSIC_DB_DIR: /fndb
+      MUSIC_UPSTREAM: unix:/run/trim_music.socket
+      COMMENTHUB_DB: /data/commenthub.db
+      COMMENTHUB_TOKEN_FILE: /data/.commenthub_token
+      BRIDGE_DB: /data/bridge.db
+      BRIDGE_ADMIN_PASSWORD: ${BRIDGE_ADMIN_PASSWORD:?请先设置管理员密码}
+    volumes:
+      - type: bind
+        source: ${HUB_DATA_DIR:-./data}
+        target: /data
+        bind:
+          create_host_path: true
+      - type: bind
+        source: ${NAS_MUSIC_DIR:?请填写 NAS 音乐目录}
+        target: /music
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ${FNMUSIC_SOCKET_PATH:-/run/trim_music.socket}
+        target: /run/trim_music.socket
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ${FNMUSIC_FNDB_DIR:-/usr/local/apps/@appdata/trim.music/db}
+        target: /fndb
+        read_only: true
+        bind:
+          create_host_path: false
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"

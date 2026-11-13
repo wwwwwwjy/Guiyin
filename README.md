@@ -127,36 +127,30 @@ flowchart LR
 - 可读写的音乐目录、可写的数据目录，以及飞牛音乐 socket 和只读数据库目录挂载。
 - 单个应用实例、单个 Uvicorn worker。接口兼容性受飞牛音乐版本与上游平台变化影响。
 
-**当前提供源码构建方式，不依赖不存在的公开 `music-hub` 镜像。** 构建时会安装运行依赖并执行回归测试；依赖都在容器内，无需在 NAS 宿主机安装 Python 包。
+### 飞牛 Docker 直接安装（无需构建）
 
-### 飞牛 Docker 页面部署
+镜像：**`ghcr.io/wwwwwwjy/guiyin:0.9.21-r2`**，适用于 **linux/amd64（Intel / AMD）**。`latest` 跟随最新发布；建议使用固定版本便于回退。镜像内已安装依赖，不需要给 NAS 安装 Python 或 Node。
 
-1. 在 GitHub 点击 **Code → Download ZIP**，解压并上传至 NAS，确保 `compose.yaml` 与 `Dockerfile` 在同一目录。
-2. 复制 `.env.example` 为 `.env`，填写至少 12 位管理员密码和真实路径：
+1. 在飞牛文件管理中创建归音数据目录，并确认音乐目录已经存在。
+2. 下载本仓库的 [compose.yaml](compose.yaml) 和 [.env.example](.env.example)，放在 NAS 的同一项目目录下，将 `.env.example` 改名为 `.env`。
+3. 编辑 `.env`，填写自己的管理员密码和实际路径：
 
    ```dotenv
    BRIDGE_ADMIN_PASSWORD=替换为你自己的至少12位密码
    NAS_MUSIC_DIR=/vol1/1000/Music
    HUB_DATA_DIR=./data
    HUB_PORT=8600
+   FNMUSIC_SOCKET_PATH=/run/trim_music.socket
+   FNMUSIC_FNDB_DIR=/usr/local/apps/@appdata/trim.music/db
    ```
 
-   示例路径需要替换为自己的 NAS 路径；确认 socket 和飞牛数据库目录也与安装位置一致。
+4. 打开 **飞牛 Docker → Compose → 新增项目**，选择上述项目目录和 `compose.yaml`，创建并启动。该配置直接拉取镜像，没有 `build` 步骤，也无需下载完整源码。
+5. 打开 `http://NAS_IP:8600`，使用账号 `admin` 和自己设置的密码登录。
+6. 在“平台与设置”选择飞牛账号，把对应音乐文件夹加入飞牛音乐媒体库；扫码连接音乐平台，读取歌单，设置来源与保存目录，再开始同步。
 
-3. 在 **Docker → Compose** 中从该目录导入 `compose.yaml`，构建并启动。
-4. 打开 `http://NAS_IP:8600`，使用账号 `admin` 和刚设置的密码登录。
-5. 在“平台与设置”选择飞牛账号，核对音乐目录挂载；把对应 NAS 文件夹加入飞牛音乐媒体库。
-6. 扫码连接平台，读取歌单，设置融合来源与目录，点击 **开始同步**。
+`/vol1/1000/Music` 只是示例，请使用文件管理中的真实路径。飞牛音乐必须已安装并运行；socket 和数据库位置不同的安装环境应修改对应变量。数据库以只读方式挂载。不要把 socket 文件误建成文件夹。
 
-如使用命令行，等价构建命令为：
-
-```bash
-git clone https://github.com/wwwwwwjy/Guiyin.git
-cd Guiyin
-cp .env.example .env
-# 编辑 .env 后再执行：
-docker compose up -d --build
-```
+也可以在飞牛 Docker 镜像页拉取 `ghcr.io/wwwwwwjy/guiyin:0.9.21-r2`，然后按 Compose 中的端口、环境变量与挂载创建容器。GHCR 公开镜像无需登录；拉取超时时先检查 NAS 到 `ghcr.io` 的网络连接。
 
 | 宿主机位置 | 容器位置 | 用途 |
 | --- | --- | --- |
@@ -165,11 +159,30 @@ docker compose up -d --build
 | `FNMUSIC_SOCKET_PATH` | `/run/trim_music.socket` | 飞牛音乐接口连接 |
 | `FNMUSIC_FNDB_DIR` | `/fndb`（只读） | 核对文件路径、曲目及账号可见性 |
 
-网页目录浏览只能访问 Docker 已挂载的位置。普通电脑可使用 `compose.local.yaml` 验证独立界面，但没有飞牛原生歌单和增强播放连接。
+网页目录浏览只能访问 Docker 已挂载的位置。ARM 设备暂未发布验证镜像。普通电脑可使用 `compose.local.yaml` 构建并验证独立界面，但没有飞牛原生歌单和增强播放连接。
 
-### 升级与备份
+### 命令行安装与升级
 
-保留 `.env`、数据目录和音乐目录，再更新源码并重新构建镜像。先备份数据；不要用空数据卷覆盖现有配置。歌曲信息修复的原文件备份位于 `/data/metadata-backups`，可能占用较多空间。
+将上述两个配置文件放在同一目录，配置 `.env` 后执行：
+
+```bash
+docker compose pull
+docker compose up -d
+```
+
+升级时备份数据目录，在 `compose.yaml` 中修改镜像版本，再拉取并重新创建容器。保留原来的环境变量和挂载；不要删除数据目录或音乐目录。回退时改回原镜像版本并恢复相应的数据备份。歌曲信息修复备份位于 `/data/metadata-backups`。
+
+### 开发者源码构建
+
+```bash
+git clone https://github.com/wwwwwwjy/Guiyin.git
+cd Guiyin
+cp .env.example .env
+# 配置 .env 后：
+docker compose -f compose.build.yaml up -d --build
+```
+
+镜像发布由 [GitHub Actions](.github/workflows/docker-publish.yml) 完成：构建时运行回归测试，启动健康检查成功后再推送 GHCR。构建流程使用 GitHub 临时令牌，源码和镜像不包含部署者账号、密码、数据库或私人音源。
 
 ## 行为与限制
 

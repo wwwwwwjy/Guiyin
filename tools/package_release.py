@@ -21,8 +21,8 @@ REMOVED_PATHS = {'app/update_agent.py', 'app/update_client.py', 'app/version_che
                  'app/requirements.txt', 'app/VERSION'}
 ROOT_FILES = {'README.md', 'THIRD_PARTY_NOTICES.md', 'LICENSE', 'Dockerfile',
               '.dockerignore', '.gitignore', '.env.example', 'requirements.txt',
-              'compose.yaml', 'compose.local.yaml', 'CHANGELOG.md', 'CONTRIBUTING.md'}
-DIRECTORIES = {'app', 'tests', 'licenses', 'third_party', 'tools', 'docs'}
+              'compose.yaml', 'compose.build.yaml', 'compose.local.yaml', 'CHANGELOG.md', 'CONTRIBUTING.md'}
+DIRECTORIES = {'app', 'tests', 'licenses', 'third_party', 'tools', 'docs', '.github'}
 
 
 def audit_files(root=ROOT):

@@ -1,11 +1,6 @@
 services:
   music-hub:
-    build:
-      context: .
-      args:
-        PYTHON_IMAGE: ${PYTHON_IMAGE:-python:3.12-slim}
-        PIP_INDEX_URL: ${PIP_INDEX_URL:-https://pypi.org/simple}
-    image: music-hub:local
+    image: ghcr.io/wwwwwwjy/guiyin:0.9.21-r2
     container_name: music-hub
     restart: unless-stopped
     init: true
