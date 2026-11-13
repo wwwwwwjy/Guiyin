@@ -58,3 +58,27 @@ jobs:
           docker push "$IMAGE:$VERSION"
           docker push "$IMAGE:latest"
           printf 'Published `%s:%s` and `%s:latest` (linux/amd64)\n' "$IMAGE" "$VERSION" "$IMAGE" >> "$GITHUB_STEP_SUMMARY"
+  public-pull:
+    needs: publish
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify public pull and startup without credentials
+        shell: bash
+        run: |
+          set -euo pipefail
+          IMAGE="ghcr.io/${GITHUB_REPOSITORY,,}"
+          VERSION=$(cat app/HUB_VERSION | tr -d '\r\n')
+          EMPTY_CONFIG=$(mktemp -d)
+          docker --config "$EMPTY_CONFIG" pull "$IMAGE:$VERSION"
+          docker --config "$EMPTY_CONFIG" pull "$IMAGE:latest"
+          docker run -d --name guiyin-public -p 127.0.0.1:8600:8600 -e BRIDGE_ADMIN_PASSWORD="$(openssl rand -hex 24)" "$IMAGE:$VERSION"
+          trap 'docker logs guiyin-public; docker rm -f guiyin-public; rm -rf "$EMPTY_CONFIG"' EXIT
+          for attempt in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:8600/api/health; then exit 0; fi
+            sleep 2
+          done
+          exit 1
