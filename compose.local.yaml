@@ -1,0 +1,17 @@
+# 非飞牛电脑的本地验证配置。
+services:
+  music-hub:
+    build: .
+    image: music-hub:local
+    restart: unless-stopped
+    ports:
+      - "${HUB_PORT:-8600}:8600"
+    environment:
+      FNMUSIC_HOME: /data
+      MUSIC_DIR: /music
+      COMMENTHUB_ENABLE: "0"
+      MUSIC_PROXY_ENABLE: "0"
+      BRIDGE_ADMIN_PASSWORD: ${BRIDGE_ADMIN_PASSWORD:?请设置管理员密码}
+    volumes:
+      - ./data:/data
+      - ./music:/music

@@ -1,0 +1,14 @@
+{
+  "retrieved": "2026-11-10",
+  "fnmusic_bridge_tree_sha": "762bc49e6ec5036b605d51d661cd64cf4fb9affe",
+  "netease_provider_source": "https://github.com/Suxiaoqinx/Netease_url/blob/main/music_api.py",
+  "netease_original_sha256": "57b3c9a2caa9ed8bdc7fe4043637ccf77243f518b5a19ea6affdaee65585e1ba",
+  "hash_note": "netease SHA256 is the modified vendored file with duration_ms field",
+  "qqmusic_sdk": {
+    "name": "qqmusic-api-python",
+    "version": "0.9.0",
+    "source": "https://pypi.org/project/qqmusic-api-python/0.9.0/",
+    "sdist_sha256": "82a3bf85c183a96609d2465cebcc2dbe5225f35e0794f67524e8b995720d8996"
+  },
+  "initial_integration_version": "0.2.0"
+}

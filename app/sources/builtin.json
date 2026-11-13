@@ -1,0 +1,6 @@
+{"version":1,"sources":[
+{"id":"builtin-netease","name":"网易云音乐 · 内置接口","platforms":["netease"],"kind":"builtin","files":["hub_providers.py","netease_provider.py"]},
+{"id":"builtin-qq","name":"QQ 音乐 · 内置接口","platforms":["qq"],"kind":"builtin","files":["hub_providers.py","hub_qq.py"]},
+{"id":"builtin-kugou","name":"酷狗音乐 · 内置接口","platforms":["kugou"],"kind":"builtin","files":["hub_providers.py","hub_kugou.py"]},
+{"id":"builtin-netease-public","name":"网易云 · 原有备用接口","platforms":["netease"],"kind":"fallback","files":["hub_providers.py"],"note":"保留原有 musicjx 接口；与其他音源一起按设置的优先级使用。"}
+]}
