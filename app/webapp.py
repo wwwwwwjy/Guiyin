@@ -331,11 +331,10 @@ def status():
             "bridge": bridge_status()}
 
 # --------------------------------------------------------------- 版本与更新
-# Local project releases only; no upstream image updater or external version requests.
 @app.get("/api/version")
 def api_version(refresh: int = 0):
-    """当前版本 + 是否有更新。只读接口，与 /api/status 一样不拦鉴权。"""
-    return {"current":"归音 " + HUB_VERSION, "latest":None, "update_available":False, "error":"请使用归音源码重建镜像", "source":"local", "image":"music-hub:" + HUB_VERSION}
+    return {"current": "归音 " + HUB_VERSION, "latest": None, "update_available": False,
+            "error": None, "source": "docker", "image": "ghcr.io/wwwwwwjy/guiyin:" + HUB_VERSION}
 
 
 def _uptime_text(seconds):
@@ -370,13 +369,12 @@ def api_app_info():
 
 @app.get("/api/update/agent")
 def api_update_agent():
-    """Compatibility response for old clients; upstream updates are unavailable."""
-    return {"available":False, "running":False, "reason":"请通过飞牛 Docker 更新归音镜像"}
+    return {"available": False, "running": False, "reason": "请通过飞牛 Docker 更新归音镜像"}
 
 
 @app.post("/api/update/apply")
-async def api_update_apply(request: Request):
-    return JSONResponse({"error":"请使用归音 Dockerfile 重建镜像"}, status_code=409)
+def api_update_apply():
+    return JSONResponse({"error": "请通过飞牛 Docker 更新归音镜像"}, status_code=409)
 
 
 

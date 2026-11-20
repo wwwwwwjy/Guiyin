@@ -1,6 +1,6 @@
 services:
   music-hub:
-    image: ghcr.io/wwwwwwjy/guiyin:0.9.21-r2
+    image: ghcr.io/wwwwwwjy/guiyin:${GUIYIN_IMAGE_TAG:-latest}
     container_name: music-hub
     restart: unless-stopped
     init: true

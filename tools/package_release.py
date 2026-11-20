@@ -84,7 +84,9 @@ def main():
     if args.audit_only:
         print(f'Audit passed: {len(files)} approved files; owner-approved payment images and manifest-pinned screenshots, no obsolete updater.')
         return
-    target = ROOT.parent / f'Guiyin-{version}.zip'
+    release_dir = ROOT.parent / '发布包'
+    release_dir.mkdir(exist_ok=True)
+    target = release_dir / f'Guiyin-{version}.zip'
     with zipfile.ZipFile(target, 'w', zipfile.ZIP_DEFLATED) as archive:
         for p in files:
             archive.write(p, 'music-hub/' + p.relative_to(ROOT).as_posix())

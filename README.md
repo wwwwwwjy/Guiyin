@@ -10,7 +10,7 @@
 
 [功能展示](#功能展示) · [安装部署](#安装部署) · [使用手册](docs/USAGE.md) · [常见问题](docs/FAQ.md) · [更新记录](CHANGELOG.md)
 
-![版本](https://img.shields.io/badge/version-0.9.21--r2-cbed87)
+![版本](https://img.shields.io/badge/version-0.9.22-cbed87)
 ![Docker](https://img.shields.io/badge/deploy-Docker-2496ED)
 ![飞牛](https://img.shields.io/badge/NAS-fnOS-48566c)
 ![License](https://img.shields.io/badge/license-GPL--3.0--or--later-blue)
@@ -129,7 +129,7 @@ flowchart LR
 
 ### 飞牛 Docker 直接安装（无需构建）
 
-镜像：**`ghcr.io/wwwwwwjy/guiyin:0.9.21-r2`**，适用于 **linux/amd64（Intel / AMD）**。`latest` 跟随最新发布；建议使用固定版本便于回退。镜像内已安装依赖，不需要给 NAS 安装 Python 或 Node。
+镜像：**`ghcr.io/wwwwwwjy/guiyin:latest`**，适用于 **linux/amd64（Intel / AMD）**。默认跟踪最新发布；如需固定版本，可在 `.env` 中设置 `GUIYIN_IMAGE_TAG=0.9.22`。镜像内已安装依赖，不需要给 NAS 安装 Python 或 Node。
 
 1. 在飞牛文件管理中创建归音数据目录，并确认音乐目录已经存在。
 2. 下载本仓库的 [compose.yaml](compose.yaml) 和 [.env.example](.env.example)，放在 NAS 的同一项目目录下，将 `.env.example` 改名为 `.env`。
@@ -150,7 +150,7 @@ flowchart LR
 
 `/vol1/1000/Music` 只是示例，请使用文件管理中的真实路径。飞牛音乐必须已安装并运行；socket 和数据库位置不同的安装环境应修改对应变量。数据库以只读方式挂载。不要把 socket 文件误建成文件夹。
 
-也可以在飞牛 Docker 镜像页拉取 `ghcr.io/wwwwwwjy/guiyin:0.9.21-r2`，然后按 Compose 中的端口、环境变量与挂载创建容器。GHCR 公开镜像无需登录；拉取超时时先检查 NAS 到 `ghcr.io` 的网络连接。
+也可以在飞牛 Docker 镜像页拉取 `ghcr.io/wwwwwwjy/guiyin:latest`，然后按 Compose 中的端口、环境变量与挂载创建容器。GHCR 公开镜像无需登录；拉取超时时先检查 NAS 到 `ghcr.io` 的网络连接。
 
 | 宿主机位置 | 容器位置 | 用途 |
 | --- | --- | --- |
@@ -170,7 +170,7 @@ docker compose pull
 docker compose up -d
 ```
 
-升级时备份数据目录，在 `compose.yaml` 中修改镜像版本，再拉取并重新创建容器。保留原来的环境变量和挂载；不要删除数据目录或音乐目录。回退时改回原镜像版本并恢复相应的数据备份。歌曲信息修复备份位于 `/data/metadata-backups`。
+升级前备份数据目录。跟踪 `latest` 时，直接在飞牛 Docker 拉取镜像并重新创建容器；使用固定版本时，先修改 `GUIYIN_IMAGE_TAG`。若飞牛 Docker 提供镜像更新检查，可在 Docker 中启用；归音设置页只显示运行版本。保留原来的环境变量和挂载；不要删除数据目录或音乐目录。回退时固定到原镜像版本并恢复相应的数据备份。歌曲信息修复备份位于 `/data/metadata-backups`。
 
 ### 开发者源码构建
 
