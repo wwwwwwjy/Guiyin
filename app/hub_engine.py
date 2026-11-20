@@ -300,11 +300,11 @@ class Engine:
         if rule['auto_download']:
             for tid in tracks:
                 self.check(job)
-                self.enqueue_download(tid,rule['quality'])
+                self.enqueue_download(tid,rule['quality'], export_existing=False)
         self.export()
         return ';'.join(warnings)
 
-    def enqueue_download(self, tid, quality='lossless', force=False):
+    def enqueue_download(self, tid, quality='lossless', force=False, *, export_existing=True):
         rows = self.store.rows('SELECT path FROM tracks WHERE id=?',(tid,))
         if not rows:
             raise ValueError('歌曲不存在')
@@ -326,7 +326,8 @@ class Engine:
                         path=str(file.relative_to(self.root))
                         with self.store.connect() as db:db.execute('UPDATE tracks SET path=?,bytes=?,quality=? WHERE id=?',(path,file.stat().st_size,'local',tid))
         if path and (self.root/path).is_file():
-            self.export()
+            if export_existing:
+                self.export()
             return {'skipped':True,'reason':'本地文件已存在'}
         if not force and self.store.rows("SELECT id FROM jobs WHERE dedupe=? AND status='blocked' LIMIT 1",('download:'+tid,)):
             return {'skipped':True,'reason':'此曲等待授权或配置修复，可在任务中心手动重试'}

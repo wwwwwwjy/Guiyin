@@ -50,6 +50,38 @@ class FolderTests(unittest.TestCase):
         self.assertTrue((src/'Song.mp3').exists())
         self.e.store.export_playlists(self.e.root)
         self.assertIn('../我的喜欢/Song.mp3',next((self.e.root/'Playlists').glob('*.m3u8')).read_text())
+    def test_sync_queues_new_track_despite_existing_name_collision(self):
+        from unittest.mock import patch
+
+        rule = self.rule('playlist')
+        old = dict(source_id='1', title='Old', artists=['Singer'])
+        new = dict(source_id='2', title='New', artists=['Singer'])
+        tid = self.e.store.upsert_track('netease', old)
+        src = self.e.root / 'Song.mp3'
+        src.write_bytes(b'original')
+        src.with_suffix('.lrc').write_text('lyrics')
+        dest = self.e.root / 'liked'
+        dest.mkdir()
+        existing = dest / src.name
+        existing.write_bytes(b'other123')  # Equal size and different contents.
+        with self.e.store.connect() as db:
+            db.execute("UPDATE tracks SET path='Song.mp3' WHERE id=?", (tid,))
+            db.execute("INSERT INTO hub_group_dirs VALUES('old','liked')")
+        self.e.save_settings({'sync_enabled': True})
+        self.e.store.enqueue('sync', 'sync:' + rule['id'], {'rule_id': rule['id']})
+        job = self.e.store.claim()
+        with patch.object(self.e.providers, 'discover', return_value=[{'id': 'p'}]), patch.object(
+            self.e.providers, 'playlist', return_value={'tracks': [old, new]}
+        ):
+            self.e.sync(job)
+        self.assertEqual(len(self.e.store.rows("SELECT * FROM jobs WHERE kind='download'")), 1)
+        self.assertEqual(existing.read_bytes(), b'other123')
+        copied = hub_folders.saved_file(self.e, {'id': tid, 'path': src.name}, 'old')
+        self.assertEqual(copied.read_bytes(), b'original')
+        self.assertEqual(copied.with_suffix('.lrc').read_text(), 'lyrics')
+        hub_folders.publish(self.e)
+        self.assertEqual(set(dest.glob('*.mp3')), {existing, copied})
+
     def test_removed_child_clears_membership_only(self):
         p=self.rule();hub_folders.materialize(self.e,p,[{'id':'1','name':'rain'}]);c=self.e.store.rows('SELECT id FROM hub_catalog_children')[0]['id']
         tid=self.e.store.upsert_track('netease',dict(source_id='x',title='Song',artists=[]))

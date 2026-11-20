@@ -10,7 +10,7 @@
 
 [功能展示](#功能展示) · [安装部署](#安装部署) · [使用手册](docs/USAGE.md) · [常见问题](docs/FAQ.md) · [更新记录](CHANGELOG.md)
 
-![版本](https://img.shields.io/badge/version-0.9.22-cbed87)
+![版本](https://img.shields.io/badge/version-0.9.23-cbed87)
 ![Docker](https://img.shields.io/badge/deploy-Docker-2496ED)
 ![飞牛](https://img.shields.io/badge/NAS-fnOS-48566c)
 ![License](https://img.shields.io/badge/license-GPL--3.0--or--later-blue)
@@ -129,7 +129,7 @@ flowchart LR
 
 ### 飞牛 Docker 直接安装（无需构建）
 
-镜像：**`ghcr.io/wwwwwwjy/guiyin:latest`**，适用于 **linux/amd64（Intel / AMD）**。默认跟踪最新发布；如需固定版本，可在 `.env` 中设置 `GUIYIN_IMAGE_TAG=0.9.22`。镜像内已安装依赖，不需要给 NAS 安装 Python 或 Node。
+镜像：**`ghcr.io/wwwwwwjy/guiyin:latest`**，适用于 **linux/amd64（Intel / AMD）**。默认跟踪最新发布；如需固定版本，可在 `.env` 中设置 `GUIYIN_IMAGE_TAG=0.9.23`。镜像内已安装依赖，不需要给 NAS 安装 Python 或 Node。
 
 1. 在飞牛文件管理中创建归音数据目录，并确认音乐目录已经存在。
 2. 下载本仓库的 [compose.yaml](compose.yaml) 和 [.env.example](.env.example)，放在 NAS 的同一项目目录下，将 `.env.example` 改名为 `.env`。

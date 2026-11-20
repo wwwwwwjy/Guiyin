@@ -2,7 +2,7 @@ ARG PYTHON_IMAGE=python:3.12-slim
 FROM ${PYTHON_IMAGE}
 LABEL org.opencontainers.image.title="归音 Music Hub" \
       org.opencontainers.image.source="https://github.com/wwwwwwjy/Guiyin" \
-      org.opencontainers.image.version="0.9.22" \
+      org.opencontainers.image.version="0.9.23" \
       org.opencontainers.image.licenses="GPL-3.0-or-later"
 ARG PIP_INDEX_URL=https://pypi.org/simple
 WORKDIR /app

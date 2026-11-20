@@ -1,4 +1,5 @@
 """Explicit playlist destinations and account playlist catalog; never removes audio."""
+import filecmp
 import hashlib
 import json
 import os
@@ -95,7 +96,7 @@ def saved_file(e, track, group=None):
         if not dirs:return None
         dest=(e.root/dirs[0]['directory']).resolve()
         candidates=[r['path'] for r in e.store.rows('SELECT path FROM hub_group_files WHERE name=? AND track_id=?',(group,track['id']))]
-        if track.get('path'):candidates.extend([str(dest/Path(track['path']).name),track['path']])
+        if track.get('path'):candidates.append(track['path'])
     else:
         dest=None
         candidates=[track.get('path')]+[r['path'] for r in e.store.rows('SELECT path FROM hub_group_files WHERE track_id=?',(track['id'],))]
@@ -113,6 +114,42 @@ def counts(e, group, rule_id=None):
     return {'total':len(rows),'downloaded':sum(saved_file(e,r,group) is not None for r in rows)}
 
 
+def place_audio(src, dest, track_id):
+    """Reuse identical audio or reserve a stable name without overwriting files."""
+    key = hashlib.sha256(track_id.encode()).hexdigest()[:12]
+    attempt = 0
+    while True:
+        suffix = '' if attempt == 0 else f'--{key}' + (f'-{attempt}' if attempt > 1 else '')
+        stem = src.stem
+        if suffix:
+            budget = os.pathconf(dest, 'PC_NAME_MAX') - len(os.fsencode(suffix + src.suffix))
+            stem = stem.encode('utf-8')[:budget].decode('utf-8', errors='ignore')
+        target = dest / (stem + suffix + src.suffix)
+        if not target.is_symlink():
+            if target.is_file():
+                if src.samefile(target) or filecmp.cmp(src, target, shallow=False):
+                    return target
+            elif not target.exists():
+                try:
+                    os.link(src, target)
+                    return target
+                except FileExistsError:
+                    continue
+                except OSError:
+                    try:
+                        output = target.open('xb')
+                    except FileExistsError:
+                        continue
+                    try:
+                        with output, src.open('rb') as source:
+                            shutil.copyfileobj(source, output)
+                    except BaseException:
+                        target.unlink(missing_ok=True)
+                        raise
+                    return target
+        attempt += 1
+
+
 def publish(e):
     for g in e.store.rows('SELECT * FROM hub_group_dirs'):
         dest=e.root/directory(e,g['directory'])
@@ -120,16 +157,10 @@ def publish(e):
         for row in rows:
             src=(e.root/row['path']).resolve()
             if not src.is_relative_to(e.root) or not src.is_file():continue
-            target=dest/src.name
-            if target.resolve()!=src:
-                if target.exists():
-                    if not target.is_file() or target.stat().st_size!=src.stat().st_size:raise ValueError('分类目录存在同名不同文件，请更换目录')
-                else:
-                    try:os.link(src,target)
-                    except OSError:
-                        tmp=target.with_suffix(target.suffix+'.copying')
-                        try:shutil.copy2(src,tmp);os.replace(tmp,target)
-                        finally:tmp.unlink(missing_ok=True)
+            target = saved_file(e, row, g['name'])
+            if target is None:
+                target = place_audio(src, dest, row['id'])
+            if target != src:
                 lyric=src.with_suffix('.lrc')
                 if lyric.is_file() and not target.with_suffix('.lrc').exists():shutil.copy2(lyric,target.with_suffix('.lrc'))
                 for suffix in ('.jpg','.png'):
