@@ -26,6 +26,7 @@ class Library:
         self.engine=engine
         self.lock=threading.Lock()
         self.running=False
+        self.rescan=False
         self.error=''
         self.last_scan=0
         self.scanned=0
@@ -34,7 +35,7 @@ class Library:
               title TEXT,artists TEXT,album TEXT,duration INTEGER,bytes INTEGER,mtime REAL,seen REAL)''')
 
     def directories(self):
-        return self.engine.settings().get('library_dirs') or [str(self.engine.mount_root)]
+        return self.engine.settings().get('library_dirs', [str(self.engine.mount_root)])
 
     def confined(self, value):
         path=Path(value).resolve()
@@ -51,9 +52,11 @@ class Library:
                 dirs.append({'name':p.name,'path':str(p)})
         return {'path':str(path),'parent':str(path.parent) if path!=self.engine.mount_root else None,'directories':dirs}
 
-    def start(self):
+    def start(self, *, rescan=False):
         with self.lock:
-            if self.running:return False
+            if self.running:
+                self.rescan = self.rescan or rescan
+                return False
             self.running=True
         threading.Thread(target=self.scan,name='hub-file-index',daemon=True).start()
         return True
@@ -107,7 +110,11 @@ class Library:
             from hub_errors import describe
             self.error=describe(exc)[1]
         finally:
-            with self.lock:self.running=False
+            with self.lock:
+                self.running = False
+                rescan, self.rescan = self.rescan, False
+            if rescan and not self.engine.stop.is_set():
+                self.start()
 
     def stats(self):
         row=self.engine.store.rows('SELECT COUNT(*) count,COALESCE(SUM(bytes),0) bytes FROM local_files')[0]

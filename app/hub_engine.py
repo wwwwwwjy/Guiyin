@@ -93,7 +93,6 @@ class Engine:
                 current['music_dir']=str(candidate)
             if 'library_dirs' in value:
                 current['library_dirs'] = list(dict.fromkeys(str(self.library.confined(p)) for p in value['library_dirs']))
-                if not current['library_dirs']:raise ValueError('请至少选择一个音乐目录')
             for key in ('fn_auto','fn_user','fn_music_root','fn_library','downloads_paused','sync_enabled','download_quality'):
                 if key in value:
                     current[key]=value[key]
@@ -103,7 +102,7 @@ class Engine:
                 json.dump(current,f,ensure_ascii=False)
             temp.replace(self.config_path)
             self.store.dirty()
-            if 'library_dirs' in value:self.library.start()
+            if 'library_dirs' in value:self.library.start(rescan=True)
 
     def public_settings(self):
         cfg = self.settings()

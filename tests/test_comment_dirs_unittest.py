@@ -56,6 +56,19 @@ class CommentDirectoryTests(unittest.TestCase):
         self.assertEqual([x['done'] for x in self.d.status()['directories']],[1,1])
         again=CommentDirectories(self.e);self.addCleanup(lambda:again.pool.shutdown(wait=True))
         self.assertFalse(again.pump());self.assertEqual([x['done'] for x in again.status()['directories']],[1,1])
+    def test_remove_keeps_shared_membership_and_audio(self):
+        audio = self.file('A/B/song.mp3')
+        a = self.add(self.e.root/'A')
+        b = self.add(self.e.root/'A/B')
+        self.enable(a)
+        self.d.pump()
+        self.enable(b)
+        self.d.remove(a)
+        self.assertEqual(len(self.cancelled), 1)
+        self.assertEqual([x['id'] for x in self.d.status()['directories']], [b])
+        self.assertEqual(self.d.status()['directories'][0]['total'], 1)
+        self.assertTrue(audio.is_file())
+
     def test_pause_one_directory_leaves_other_running_and_resume_keeps_checkpoint(self):
         self.file('A/song.mp3');self.file('B/song.mp3');a=self.add(self.e.root/'A');b=self.add(self.e.root/'B')
         self.enable(a);self.d.pump();row=self.checkpoint();self.d.control(a,'pause')

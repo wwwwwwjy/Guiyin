@@ -29,8 +29,18 @@ class AssetDirectories:
         path = str(self.e.library.confined(path))
         key = hashlib.sha256(path.encode()).hexdigest()[:24]
         with self.lock, self.e.store.connect() as db:
+            if self.active == key and not db.execute(f'SELECT 1 FROM {self.table} WHERE id=?', (key,)).fetchone():
+                raise ValueError('目录正在停止，请稍后再添加')
             db.execute(f'INSERT OR IGNORE INTO {self.table}(id,path) VALUES (?,?)', (key,path))
         return key
+
+    def remove(self, key):
+        with self.lock, self.e.store.connect() as db:
+            db.execute(f'DELETE FROM {self.table} WHERE id=?', (key,))
+            if key == self.active:
+                self.workers[key].stop.set()
+            else:
+                self.workers.pop(key, None)
 
     def control(self, key, action):
         if action not in ('pause','resume','scan'):
@@ -118,6 +128,8 @@ class AssetDirectories:
                 self.checkpoint(key,worker)
                 with self.e.store.connect() as db:
                     # Resume while stopping requests an immediate fresh run.
+                    if not db.execute(f'SELECT 1 FROM {self.table} WHERE id=?', (key,)).fetchone():
+                        self.workers.pop(key, None)
                     due = 0 if worker.cancelled() else time.time() + (0 if more else self.interval)
                     db.execute(f'UPDATE {self.table} SET due=? WHERE id=?', (due,key))
                 self.active = None

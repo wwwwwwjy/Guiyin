@@ -32,9 +32,12 @@ class CommentDirectories:
     def add(self,path):
         path=str(self.e.library.confined(path))
         key=hashlib.sha256(path.encode()).hexdigest()[:24]
-        with self.e.store.connect() as db:
-            db.execute('INSERT OR IGNORE INTO comment_directories(id,path) VALUES(?,?)',(key,path))
-        self.scan_start(key)
+        with self.lock:
+            with self.e.store.connect() as db:
+                if key in self.scanning and not db.execute('SELECT 1 FROM comment_directories WHERE id=?',(key,)).fetchone():
+                    raise ValueError('目录正在停止，请稍后再添加')
+                db.execute('INSERT OR IGNORE INTO comment_directories(id,path) VALUES(?,?)',(key,path))
+            self.scan_start(key)
         return key
 
     def scan_start(self,key):
@@ -84,6 +87,8 @@ class CommentDirectories:
             # share file work and checkpoints, so the same file is never fetched twice.
             with self.e.store.connect() as db:
                 db.execute('BEGIN IMMEDIATE')
+                if not db.execute('SELECT 1 FROM comment_directories WHERE id=?',(key,)).fetchone():
+                    return
                 for fid,path,signature,meta in files:
                     db.execute('''INSERT INTO comment_files(id,path,signature,meta) VALUES(?,?,?,?)
                         ON CONFLICT(id) DO UPDATE SET signature=excluded.signature,meta=excluded.meta,
@@ -99,6 +104,19 @@ class CommentDirectories:
         finally:
             with self.lock:self.scanning.discard(key)
 
+    def remove(self, key):
+        with self.lock:
+            with self.e.store.connect() as db:
+                db.execute('DELETE FROM comment_directories WHERE id=?', (key,))
+                db.execute('DELETE FROM comment_directory_files WHERE directory_id=?', (key,))
+            self.cancel_owned_tasks(key)
+
+    def cancel_owned_tasks(self, key):
+        manager = (self.e.bridge or {}).get('BRIDGE', {}).get('manager')
+        if manager:
+            for row in self.e.store.rows('SELECT DISTINCT task_id FROM comment_files WHERE owner=? AND task_id IS NOT NULL', (key,)):
+                manager.cancel(row['task_id'])
+
     def control(self,key,action):
         with self.lock:
             rows=self.e.store.rows('SELECT * FROM comment_directories WHERE id=?',(key,))
@@ -111,10 +129,7 @@ class CommentDirectories:
                     db.execute("UPDATE comment_files SET due=0 WHERE status='failed' AND id IN (SELECT file_id FROM comment_directory_files WHERE directory_id=?)",(key,))
             if enabled:self.scan_start(key)
             else:
-                manager=(self.e.bridge or {}).get('BRIDGE',{}).get('manager')
-                if manager:
-                    for row in self.e.store.rows('SELECT DISTINCT task_id FROM comment_files WHERE owner=? AND task_id IS NOT NULL',(key,)):
-                        manager.cancel(row['task_id'])
+                self.cancel_owned_tasks(key)
 
     def progress(self,task):
         result=task.get('result') or {}

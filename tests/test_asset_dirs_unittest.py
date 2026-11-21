@@ -83,6 +83,33 @@ class AssetDirectoryTests(unittest.TestCase):
             self.assertIs(self.d.workers[large], worker)
             self.assertEqual([row['status'] for row in worker.rows], ['未匹配', '未匹配'])
 
+    def test_remove_missing_directory_while_worker_active(self):
+        for directories in (self.d, self.e.metadata_directories):
+            path = self.a / directories.table
+            path.mkdir()
+            key = directories.add(str(path))
+            path.rmdir()
+            worker = Assets(self.e, [str(path)])
+            directories.workers[key] = worker
+            directories.active = key
+            directories.remove(key)
+            self.assertTrue(worker.stop.is_set())
+            self.assertEqual(directories.status()['directories'], [])
+            directories.run(key, worker, continuing=True)
+            self.assertNotIn(key, directories.workers)
+            self.assertEqual(directories.status()['directories'], [])
+
+    def test_empty_library_selection_does_not_scan_mount_root(self):
+        (self.a / 'song.mp3').write_bytes(b'audio')
+        self.e.library.scan()
+        self.assertEqual(self.e.library.stats()['count'], 1)
+        with patch.object(self.e.library, 'start'):
+            self.e.save_settings({'library_dirs': []})
+        self.e.library.scan()
+        self.assertEqual(self.e.library.stats()['directories'], [])
+        self.assertEqual(self.e.library.stats()['count'], 0)
+        self.assertTrue((self.a / 'song.mp3').is_file())
+
     def test_missing_file_does_not_abort_remaining_rows(self):
         w=Assets(self.e,[str(self.a)])
         w.rows=[dict(path=str(self.a/'gone.mp3'),status='待匹配')]

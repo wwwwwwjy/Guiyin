@@ -219,6 +219,11 @@ def install(app, bridge):
         try:return {'id':engine().asset_directories.add(body.path)}
         except ValueError as exc:raise HTTPException(400,str(exc))
 
+    @router.delete('/asset-directories/{key}')
+    def remove_asset_directory(key: str):
+        engine().asset_directories.remove(key)
+        return {'ok':True}
+
     @router.post('/asset-directories/{key}')
     def asset_directory_control(key: str,body: CommentDirectoryControl):
         try:engine().asset_directories.control(key,body.action)
@@ -233,6 +238,11 @@ def install(app, bridge):
     def metadata_directory_add(body: CommentDirectory):
         try:return {'id':engine().metadata_directories.add(body.path)}
         except ValueError as exc:raise HTTPException(400,str(exc))
+
+    @router.delete('/metadata-directories/{key}')
+    def remove_metadata_directory(key: str):
+        engine().metadata_directories.remove(key)
+        return {'ok':True}
 
     @router.post('/metadata-directories/{key}')
     def metadata_directory_control(key: str,body: CommentDirectoryControl):
@@ -272,6 +282,11 @@ def install(app, bridge):
     def comment_directory_add(body: CommentDirectory):
         try:return {'id':engine().comment_directories.add(body.path)}
         except ValueError as exc:raise HTTPException(400,str(exc))
+
+    @router.delete('/comment-directories/{key}')
+    def remove_comment_directory(key: str):
+        engine().comment_directories.remove(key)
+        return {'ok':True}
 
     @router.post('/comment-directories/{key}')
     def comment_directory_control(key: str,body: CommentDirectoryControl):
@@ -360,6 +375,17 @@ def install(app, bridge):
         except Exception:warning='配置已保存，歌单文件暂未更新；下次同步时重试'
         return {'ok':True,'warning':warning}
 
+
+    @router.delete('/group-directory')
+    def remove_group_directory(name: str):
+        e = engine()
+        with e.export_lock, e.store.connect() as db:
+            db.execute('BEGIN IMMEDIATE')
+            db.execute('UPDATE rules SET enabled=0 WHERE group_name=?', (name,))
+            db.execute('DELETE FROM hub_group_dirs WHERE name=?', (name,))
+            db.execute('DELETE FROM hub_group_files WHERE name=?', (name,))
+            db.execute('UPDATE pipeline SET revision=revision+1 WHERE id=1')
+        return {'ok':True}
 
     @router.get('/groups')
     def groups():
