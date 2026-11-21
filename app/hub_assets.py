@@ -187,11 +187,16 @@ class Assets:
                 except Exception:failures.append(label+' 搜索失败')
         return result,'；'.join(dict.fromkeys(failures)) or '已按启用音源优先级尝试，未找到可信的同版本歌词或封面（部分源仅支持音频）'
 
-    def match(self):
+    def match(self, limit=None):
         import hub_artwork
-        for row in self.rows:
+        pending = (row for row in self.rows if row['status'] != '无法读取音频'
+                   and (limit is None or row['status'] == '待匹配'))
+        processed = 0
+        for row in pending:
+            if limit is not None and processed >= limit:
+                return True
+            processed += 1
             if self.cancelled():return
-            if row['status']=='无法读取音频':continue
             try:
                 path=self.allowed(Path(row['path']))
                 local=inspect(path)

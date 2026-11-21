@@ -146,6 +146,7 @@ class MetadataDirectories(AssetDirectories):
     worker_type=MetadataWorker
     success_status='已修复'
     interval=86400
+    match_batch=None
     def __init__(self,e):
         super().__init__(e)
         self.write_lock=__import__('threading').RLock()

@@ -53,6 +53,36 @@ class AssetDirectoryTests(unittest.TestCase):
         self.assertEqual(status['rows'][0]['status'],'待匹配')
         self.assertEqual(status['directories'][0]['current'],'')
         self.assertEqual(status['directories'][0]['processed'],0)
+    def test_large_directory_yields_to_due_directory_without_rescanning(self):
+        large = self.d.add(str(self.a))
+        small = self.d.add(str(self.b))
+        self.d.match_batch = 1
+        self.a.joinpath('one.mp3').write_bytes(b'x')
+        self.a.joinpath('two.mp3').write_bytes(b'x')
+        self.b.joinpath('new.mp3').write_bytes(b'x')
+
+        def inspect(path):
+            return dict(path=str(path), title=path.stem, artists=['a'],
+                        cover_missing=True, lyric_missing=True)
+
+        with self.e.store.connect() as db:
+            db.execute('UPDATE asset_directories SET enabled=1,due=1 WHERE id=?', (large,))
+            db.execute('UPDATE asset_directories SET enabled=1,due=2 WHERE id=?', (small,))
+        with patch('hub_assets.inspect', side_effect=inspect), patch.object(
+            Assets, 'resources', return_value=({}, '未匹配')
+        ), patch.object(self.e.library, 'start'):
+            self.d.pump()
+            self.d.thread.join(5)
+            worker = self.d.workers[large]
+            self.assertEqual(worker.phase, '等待继续匹配')
+            self.d.pump()
+            self.d.thread.join(5)
+            self.assertEqual(self.d.workers[small].scanned, 1)
+            self.d.pump()
+            self.d.thread.join(5)
+            self.assertIs(self.d.workers[large], worker)
+            self.assertEqual([row['status'] for row in worker.rows], ['未匹配', '未匹配'])
+
     def test_missing_file_does_not_abort_remaining_rows(self):
         w=Assets(self.e,[str(self.a)])
         w.rows=[dict(path=str(self.a/'gone.mp3'),status='待匹配')]

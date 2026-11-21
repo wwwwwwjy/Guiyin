@@ -15,6 +15,7 @@ class AssetDirectories:
     worker_type = Assets
     success_status = "已补全"
     interval = 300
+    match_batch = 8
     def __init__(self, engine):
         self.e = engine
         self.lock = threading.RLock()
@@ -47,6 +48,8 @@ class AssetDirectories:
                         self.workers[key].stop.set()
                 else:
                     db.execute(f'UPDATE {self.table} SET enabled=1,due=0 WHERE id=?', (key,))
+            if action != 'pause' and key != self.active:
+                self.workers.pop(key, None)
             # A paused worker must exit before a resume can start another worker.
         self.pump()
 
@@ -58,7 +61,10 @@ class AssetDirectories:
             if not rows:
                 return
             row = rows[0]
-            worker = self.worker_type(self.e, [row['path']])
+            worker = self.workers.get(row['id'])
+            continuing = worker is not None and worker.phase == '等待继续匹配'
+            if not continuing:
+                worker = self.worker_type(self.e, [row['path']])
             last_checkpoint = [0]
             def save_progress():
                 if time.monotonic()-last_checkpoint[0] >= 2:
@@ -68,7 +74,7 @@ class AssetDirectories:
             self.workers[row['id']] = worker
             self.active = row['id']
             worker.running = True
-            self.thread = threading.Thread(target=self.run, args=(row['id'],worker), daemon=True, name='hub-asset-directories')
+            self.thread = threading.Thread(target=self.run, args=(row['id'],worker,continuing), daemon=True, name='hub-asset-directories')
             self.thread.start()
 
     def checkpoint(self, key, worker):
@@ -78,15 +84,25 @@ class AssetDirectories:
         with self.e.store.connect() as db:
             db.execute(f'UPDATE {self.table} SET snapshot=? WHERE id=?', (payload,key))
 
-    def run(self, key, worker):
+    def run(self, key, worker, continuing=False):
+        more = False
         try:
-            worker.phase = '正在扫描'
-            worker.scan()
+            if not continuing:
+                worker.phase = '正在扫描'
+                worker.scan()
             if not worker.cancelled():
                 worker.phase = '正在匹配'
                 self.checkpoint(key,worker)
-                worker.match()
-            worker.phase = '已暂停' if worker.cancelled() else '本轮完成，等待检查新增文件'
+                if self.match_batch:
+                    more = bool(worker.match(limit=self.match_batch))
+                else:
+                    worker.match()
+            if worker.cancelled():
+                worker.phase = '已暂停'
+            elif more:
+                worker.phase = '等待继续匹配'
+            else:
+                worker.phase = '本轮完成，等待检查新增文件'
         except Exception as exc:
             from hub_errors import describe
             worker.error = describe(exc)[1]
@@ -102,7 +118,8 @@ class AssetDirectories:
                 self.checkpoint(key,worker)
                 with self.e.store.connect() as db:
                     # Resume while stopping requests an immediate fresh run.
-                    db.execute(f'UPDATE {self.table} SET due=? WHERE id=?', (0 if worker.cancelled() else time.time()+self.interval,key))
+                    due = 0 if worker.cancelled() else time.time() + (0 if more else self.interval)
+                    db.execute(f'UPDATE {self.table} SET due=? WHERE id=?', (due,key))
                 self.active = None
 
     def status(self, key='', offset=0):
